@@ -2,6 +2,98 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  :root {
+    /* Electro Brand Colors */
+    --electric-blue: 225 68% 50%;
+    --electric-blue-light: 225 68% 60%;
+    --electric-blue-dark: 225 68% 40%;
+    --slate-gray: 215 16% 47%;
+    --emerald-green: 158 74% 39%;
+    
+    /* Base Theme Colors */
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    
+    /* Primary - Electric Blue */
+    --primary: 225 68% 50%;
+    --primary-foreground: 0 0% 100%;
+    
+    /* Secondary - Slate Gray */
+    --secondary: 215 16% 47%;
+    --secondary-foreground: 0 0% 100%;
+    
+    /* Accent - Emerald Green */
+    --accent: 158 74% 39%;
+    --accent-foreground: 0 0% 100%;
+    
+    /* Muted */
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    
+    /* Destructive */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    /* Border & Input */
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 225 68% 50%;
+    
+    /* Radius */
+    --radius: 0.5rem;
+    
+    /* Transitions */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .dark {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
+    
+    --primary: 225 68% 50%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 215 16% 47%;
+    --secondary-foreground: 0 0% 100%;
+    
+    --accent: 158 74% 39%;
+    --accent-foreground: 0 0% 100%;
+    
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 225 68% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+  }
+}
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */

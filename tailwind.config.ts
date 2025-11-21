@@ -57,6 +57,17 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        "electric-blue": {
+          DEFAULT: "hsl(var(--electric-blue))",
+          light: "hsl(var(--electric-blue-light))",
+          dark: "hsl(var(--electric-blue-dark))",
+        },
+        "slate-gray": "hsl(var(--slate-gray))",
+        "emerald-green": "hsl(var(--emerald-green))",
+      },
+      fontFamily: {
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'sans-serif'],
+        heading: ['Inter', 'sans-serif'],
       },
       borderRadius: {
         lg: "var(--radius)",
