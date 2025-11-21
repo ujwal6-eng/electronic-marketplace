@@ -62,8 +62,26 @@ export default {
           light: "hsl(var(--electric-blue-light))",
           dark: "hsl(var(--electric-blue-dark))",
         },
-        "slate-gray": "hsl(var(--slate-gray))",
-        "emerald-green": "hsl(var(--emerald-green))",
+        purple: {
+          DEFAULT: "hsl(var(--purple-accent))",
+          light: "hsl(var(--purple-light))",
+        },
+        pink: {
+          DEFAULT: "hsl(var(--pink-accent))",
+          light: "hsl(var(--pink-light))",
+        },
+        orange: {
+          DEFAULT: "hsl(var(--orange-accent))",
+          light: "hsl(var(--orange-light))",
+        },
+        emerald: {
+          DEFAULT: "hsl(var(--emerald-green))",
+          light: "hsl(var(--emerald-light))",
+        },
+        cyan: {
+          DEFAULT: "hsl(var(--cyan-accent))",
+          light: "hsl(var(--cyan-light))",
+        },
       },
       fontFamily: {
         sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'sans-serif'],

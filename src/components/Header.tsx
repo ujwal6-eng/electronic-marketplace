@@ -47,10 +47,10 @@ export const Header = () => {
           </Sheet>
           
           <Link to="/" className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-xl">E</span>
+            <div className="h-8 w-8 rounded-lg gradient-primary flex items-center justify-center shadow-md">
+              <span className="text-white font-bold text-xl">E</span>
             </div>
-            <span className="font-heading font-bold text-xl">Electro</span>
+            <span className="font-heading font-bold text-xl gradient-rainbow text-gradient">Electro</span>
           </Link>
         </div>
 
