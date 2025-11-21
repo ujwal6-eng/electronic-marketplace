@@ -4,12 +4,31 @@
 
 @layer base {
   :root {
-    /* Electro Brand Colors */
-    --electric-blue: 225 68% 50%;
-    --electric-blue-light: 225 68% 60%;
-    --electric-blue-dark: 225 68% 40%;
-    --slate-gray: 215 16% 47%;
-    --emerald-green: 158 74% 39%;
+    /* Vibrant Multicolor Palette */
+    --electric-blue: 220 90% 56%;
+    --electric-blue-light: 220 90% 70%;
+    --electric-blue-dark: 220 90% 40%;
+    
+    --purple-accent: 270 70% 60%;
+    --purple-light: 270 70% 75%;
+    
+    --pink-accent: 330 80% 65%;
+    --pink-light: 330 80% 80%;
+    
+    --orange-accent: 25 95% 60%;
+    --orange-light: 25 95% 75%;
+    
+    --emerald-green: 158 74% 45%;
+    --emerald-light: 158 74% 60%;
+    
+    --cyan-accent: 190 90% 50%;
+    --cyan-light: 190 90% 70%;
+    
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(220 90% 56%) 0%, hsl(270 70% 60%) 100%);
+    --gradient-secondary: linear-gradient(135deg, hsl(330 80% 65%) 0%, hsl(25 95% 60%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(158 74% 45%) 0%, hsl(190 90% 50%) 100%);
+    --gradient-rainbow: linear-gradient(135deg, hsl(220 90% 56%) 0%, hsl(270 70% 60%) 25%, hsl(330 80% 65%) 50%, hsl(25 95% 60%) 75%, hsl(158 74% 45%) 100%);
     
     /* Base Theme Colors */
     --background: 0 0% 100%;
@@ -20,15 +39,15 @@
     --popover-foreground: 222 47% 11%;
     
     /* Primary - Electric Blue */
-    --primary: 225 68% 50%;
+    --primary: 220 90% 56%;
     --primary-foreground: 0 0% 100%;
     
-    /* Secondary - Slate Gray */
-    --secondary: 215 16% 47%;
+    /* Secondary - Purple */
+    --secondary: 270 70% 60%;
     --secondary-foreground: 0 0% 100%;
     
-    /* Accent - Emerald Green */
-    --accent: 158 74% 39%;
+    /* Accent - Pink */
+    --accent: 330 80% 65%;
     --accent-foreground: 0 0% 100%;
     
     /* Muted */
@@ -42,10 +61,10 @@
     /* Border & Input */
     --border: 214 32% 91%;
     --input: 214 32% 91%;
-    --ring: 225 68% 50%;
+    --ring: 220 90% 56%;
     
     /* Radius */
-    --radius: 0.5rem;
+    --radius: 0.75rem;
     
     /* Transitions */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -54,29 +73,63 @@
   .dark {
     --background: 222 47% 11%;
     --foreground: 210 40% 98%;
-    --card: 222 47% 11%;
+    --card: 222 47% 14%;
     --card-foreground: 210 40% 98%;
     --popover: 222 47% 11%;
     --popover-foreground: 210 40% 98%;
     
-    --primary: 225 68% 50%;
+    --primary: 220 90% 56%;
     --primary-foreground: 0 0% 100%;
     
-    --secondary: 215 16% 47%;
+    --secondary: 270 70% 60%;
     --secondary-foreground: 0 0% 100%;
     
-    --accent: 158 74% 39%;
+    --accent: 330 80% 65%;
     --accent-foreground: 0 0% 100%;
     
     --muted: 217 33% 17%;
     --muted-foreground: 215 20% 65%;
     
-    --destructive: 0 62% 30%;
+    --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
     
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 225 68% 50%;
+    --border: 217 33% 20%;
+    --input: 217 33% 20%;
+    --ring: 220 90% 56%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+  }
+}
+
+@layer utilities {
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+  .gradient-secondary {
+    background: var(--gradient-secondary);
+  }
+  .gradient-accent {
+    background: var(--gradient-accent);
+  }
+  .gradient-rainbow {
+    background: var(--gradient-rainbow);
+  }
+  .text-gradient {
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
 }
 

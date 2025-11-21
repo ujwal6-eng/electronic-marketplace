@@ -5,10 +5,10 @@ export const FloatingActionButton = () => {
   return (
     <Button
       size="icon"
-      className="fixed bottom-20 right-6 h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-all z-50"
+      className="fixed bottom-20 right-6 h-14 w-14 rounded-full gradient-secondary shadow-2xl hover:shadow-xl transition-all z-50 border-0 hover:scale-110"
       aria-label="AI Chat Support"
     >
-      <MessageCircle className="h-6 w-6" />
+      <MessageCircle className="h-6 w-6 text-white" />
     </Button>
   );
 };
