@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
+import { Footer } from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -143,6 +144,7 @@ export default function Cart() {
         )}
       </div>
 
+      <Footer />
       <BottomNav />
     </div>
   );

@@ -1,6 +1,7 @@
 import { Header } from "@/components/Header";
 import { BottomNav } from "@/components/BottomNav";
 import { FloatingActionButton } from "@/components/FloatingActionButton";
+import { Footer } from "@/components/Footer";
 import { SearchBar } from "@/components/SearchBar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -138,6 +139,7 @@ const Index = () => {
         </Card>
       </section>
 
+      <Footer />
       <BottomNav />
       <FloatingActionButton />
     </div>
