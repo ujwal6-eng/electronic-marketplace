@@ -1,12 +1,15 @@
-import { Menu, Moon, Sun } from 'lucide-react';
-import { Button } from './ui/button';
-import { useTheme } from '@/contexts/ThemeContext';
+import { Bell, Menu, User, Moon, Sun, ShoppingCart } from "lucide-react";
+import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
+import { useTheme } from "@/contexts/ThemeContext";
+import { useCart } from "@/contexts/CartContext";
+import { Link } from "react-router-dom";
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet';
-import { Link } from 'react-router-dom';
 
 export const Header = () => {
   const { theme, toggleTheme } = useTheme();
+  const { totalItems } = useCart();
   const [open, setOpen] = useState(false);
 
   const menuItems = [
@@ -54,9 +57,39 @@ export const Header = () => {
           </Link>
         </div>
 
-        <Button variant="ghost" size="icon" onClick={toggleTheme}>
-          {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={toggleTheme}>
+            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          </Button>
+          
+          <Link to="/cart">
+            <div className="relative">
+              <Button variant="ghost" size="icon">
+                <ShoppingCart className="w-5 h-5" />
+              </Button>
+              {totalItems > 0 && (
+                <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-rose-500 text-white text-xs">
+                  {totalItems}
+                </Badge>
+              )}
+            </div>
+          </Link>
+
+          <div className="relative">
+            <Button variant="ghost" size="icon">
+              <Bell className="w-5 h-5" />
+            </Button>
+            <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-rose-500 text-white text-xs">
+              3
+            </Badge>
+          </div>
+
+          <Link to="/profile">
+            <Button variant="ghost" size="icon">
+              <User className="w-5 h-5" />
+            </Button>
+          </Link>
+        </div>
       </div>
     </header>
   );
