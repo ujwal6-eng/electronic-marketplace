@@ -14,6 +14,13 @@ import Marketplace from "./pages/Marketplace";
 import ProductDetails from "./pages/ProductDetails";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
+import Services from "./pages/Services";
+import ServiceBooking from "./pages/ServiceBooking";
+import TechnicianProfile from "./pages/TechnicianProfile";
+import Forum from "./pages/Forum";
+import ForumCategory from "./pages/ForumCategory";
+import ForumPost from "./pages/ForumPost";
+import ForumCreate from "./pages/ForumCreate";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +43,13 @@ const App = () => (
               <Route path="/product/:id" element={<ProductDetails />} />
               <Route path="/cart" element={<Cart />} />
               <Route path="/checkout" element={<Checkout />} />
+              <Route path="/services" element={<Services />} />
+              <Route path="/services/book/:category" element={<ServiceBooking />} />
+              <Route path="/technician/:id" element={<TechnicianProfile />} />
+              <Route path="/forum" element={<Forum />} />
+              <Route path="/forum/category/:category" element={<ForumCategory />} />
+              <Route path="/forum/post/:id" element={<ForumPost />} />
+              <Route path="/forum/create" element={<ForumCreate />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
