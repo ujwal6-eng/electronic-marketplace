@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import Map, { Marker, Popup } from 'react-map-gl';
 import { MapPin, Star } from 'lucide-react';
 import { Technician } from '@/data/mockServices';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
+import 'mapbox-gl/dist/mapbox-gl.css';
 
 interface ServiceMapProps {
   technicians: Technician[];
