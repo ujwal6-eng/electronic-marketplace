@@ -1,8 +1,9 @@
-import { Bell, Menu, User, Moon, Sun, ShoppingCart } from "lucide-react";
+import { Menu, User, Moon, Sun, ShoppingCart } from "lucide-react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useCart } from "@/contexts/CartContext";
+import { NotificationCenter } from "./NotificationCenter";
 import { Link } from "react-router-dom";
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet';
@@ -75,14 +76,7 @@ export const Header = () => {
             </div>
           </Link>
 
-          <div className="relative">
-            <Button variant="ghost" size="icon">
-              <Bell className="w-5 h-5" />
-            </Button>
-            <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-rose-500 text-white text-xs">
-              3
-            </Badge>
-          </div>
+          <NotificationCenter />
 
           <Link to="/profile">
             <Button variant="ghost" size="icon">

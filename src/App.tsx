@@ -17,6 +17,11 @@ import Checkout from "./pages/Checkout";
 import Services from "./pages/Services";
 import ServiceBooking from "./pages/ServiceBooking";
 import TechnicianProfile from "./pages/TechnicianProfile";
+import ProfileEdit from "./pages/ProfileEdit";
+import Orders from "./pages/Orders";
+import SellerDashboard from "./pages/SellerDashboard";
+import TechnicianDashboard from "./pages/TechnicianDashboard";
+import AdminDashboard from "./pages/AdminDashboard";
 import Forum from "./pages/Forum";
 import ForumCategory from "./pages/ForumCategory";
 import ForumPost from "./pages/ForumPost";
@@ -50,6 +55,11 @@ const App = () => (
               <Route path="/forum/category/:category" element={<ForumCategory />} />
               <Route path="/forum/post/:id" element={<ForumPost />} />
               <Route path="/forum/create" element={<ForumCreate />} />
+              <Route path="/profile/edit" element={<ProfileEdit />} />
+              <Route path="/orders" element={<Orders />} />
+              <Route path="/seller/dashboard" element={<SellerDashboard />} />
+              <Route path="/technician/dashboard" element={<TechnicianDashboard />} />
+              <Route path="/admin" element={<AdminDashboard />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
