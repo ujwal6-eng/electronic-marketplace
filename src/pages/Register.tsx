@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Upload } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 type UserRole = 'buyer' | 'seller' | 'technician';
 
@@ -16,6 +18,7 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { signUp, user } = useAuth();
 
   // Form state
   const [formData, setFormData] = useState({
@@ -31,6 +34,12 @@ export default function Register() {
     specializations: '',
     termsAccepted: false,
   });
+
+  useEffect(() => {
+    if (user) {
+      navigate('/');
+    }
+  }, [user, navigate]);
 
   const handleChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -58,11 +67,49 @@ export default function Register() {
     }
 
     setLoading(true);
-    setTimeout(() => {
+
+    const [firstName, ...lastNameParts] = formData.name.split(' ');
+    const lastName = lastNameParts.join(' ');
+
+    const metadata = {
+      first_name: firstName,
+      last_name: lastName,
+      phone: formData.phone,
+      role: formData.role,
+      ...(formData.role === 'seller' && { 
+        store_name: formData.storeName,
+        business_address: formData.businessAddress 
+      }),
+      ...(formData.role === 'technician' && { 
+        certifications: formData.certifications,
+        specializations: formData.specializations 
+      }),
+    };
+
+    const { error } = await signUp(formData.email, formData.password, metadata);
+    
+    if (error) {
       setLoading(false);
-      toast({ title: "Success", description: "Account created! Please verify your email." });
-      navigate('/verify-email');
-    }, 1500);
+      toast({ 
+        title: "Registration failed", 
+        description: error.message, 
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    // Assign role to user
+    const { data: { user: newUser } } = await supabase.auth.getUser();
+    if (newUser) {
+      await supabase.from('user_roles').insert({
+        user_id: newUser.id,
+        role: formData.role
+      });
+    }
+
+    setLoading(false);
+    toast({ title: "Success", description: "Account created! You can now sign in." });
+    navigate('/login');
   };
 
   return (
