@@ -28,6 +28,11 @@ import Forum from "./pages/Forum";
 import ForumCategory from "./pages/ForumCategory";
 import ForumPost from "./pages/ForumPost";
 import ForumCreate from "./pages/ForumCreate";
+import HelpCenter from "./pages/HelpCenter";
+import TrackOrder from "./pages/TrackOrder";
+import ReturnsRefunds from "./pages/ReturnsRefunds";
+import ShippingInfo from "./pages/ShippingInfo";
+import TermsConditions from "./pages/TermsConditions";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -64,6 +69,11 @@ const App = () => (
                 <Route path="/seller/dashboard" element={<SellerDashboard />} />
                 <Route path="/technician/dashboard" element={<TechnicianDashboard />} />
                 <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/help-center" element={<HelpCenter />} />
+                <Route path="/track-order" element={<TrackOrder />} />
+                <Route path="/returns-refunds" element={<ReturnsRefunds />} />
+                <Route path="/shipping-info" element={<ShippingInfo />} />
+                <Route path="/terms-conditions" element={<TermsConditions />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>

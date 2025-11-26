@@ -66,29 +66,29 @@ export const Footer = () => {
             <h3 className="font-semibold text-lg text-foreground">Customer Service</h3>
             <ul className="space-y-2">
               <li>
-                <a href="#" className="text-sm text-muted-foreground hover:text-violet-500 transition-colors">
+                <Link to="/help-center" className="text-sm text-muted-foreground hover:text-violet-500 transition-colors">
                   Help Center
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-sm text-muted-foreground hover:text-violet-500 transition-colors">
+                <Link to="/track-order" className="text-sm text-muted-foreground hover:text-violet-500 transition-colors">
                   Track Order
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-sm text-muted-foreground hover:text-violet-500 transition-colors">
+                <Link to="/returns-refunds" className="text-sm text-muted-foreground hover:text-violet-500 transition-colors">
                   Returns & Refunds
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-sm text-muted-foreground hover:text-violet-500 transition-colors">
+                <Link to="/shipping-info" className="text-sm text-muted-foreground hover:text-violet-500 transition-colors">
                   Shipping Info
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-sm text-muted-foreground hover:text-violet-500 transition-colors">
+                <Link to="/terms-conditions" className="text-sm text-muted-foreground hover:text-violet-500 transition-colors">
                   Terms & Conditions
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
