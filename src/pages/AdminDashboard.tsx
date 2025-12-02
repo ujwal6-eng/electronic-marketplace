@@ -6,10 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
+import { AnalyticsDashboard } from '@/components/AnalyticsDashboard';
+import { SupportTicketSystem } from '@/components/SupportTicketSystem';
 import { mockUserStats } from '@/data/mockAnalytics';
 import { 
   Users, DollarSign, ShoppingBag, AlertCircle, 
-  Search, MoreVertical, Shield, Ban, CheckCircle 
+  Search, MoreVertical, Shield, Ban, CheckCircle,
+  BarChart3, Headphones
 } from 'lucide-react';
 import { 
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, 
@@ -110,12 +113,23 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        <Tabs defaultValue="users" className="space-y-6">
+        <Tabs defaultValue="analytics" className="space-y-6">
           <TabsList>
+            <TabsTrigger value="analytics" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Analytics
+            </TabsTrigger>
             <TabsTrigger value="users">User Management</TabsTrigger>
             <TabsTrigger value="moderation">Content Moderation</TabsTrigger>
-            <TabsTrigger value="analytics">Platform Analytics</TabsTrigger>
+            <TabsTrigger value="support" className="flex items-center gap-2">
+              <Headphones className="h-4 w-4" />
+              Support
+            </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="analytics">
+            <AnalyticsDashboard />
+          </TabsContent>
 
           <TabsContent value="users">
             <Card>
@@ -216,18 +230,8 @@ export default function AdminDashboard() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="analytics">
-            <Card>
-              <CardHeader>
-                <CardTitle>Platform Analytics</CardTitle>
-                <CardDescription>Detailed platform metrics and insights</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-center text-muted-foreground py-8">
-                  Detailed analytics coming soon
-                </p>
-              </CardContent>
-            </Card>
+          <TabsContent value="support">
+            <SupportTicketSystem />
           </TabsContent>
         </Tabs>
       </main>
