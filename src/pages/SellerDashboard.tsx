@@ -1,17 +1,95 @@
+import { useState, useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { Footer } from '@/components/Footer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { mockSalesData, mockProductPerformance } from '@/data/mockAnalytics';
-import { DollarSign, Package, ShoppingCart, TrendingUp, TrendingDown, Plus } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { DollarSign, Package, ShoppingCart, TrendingUp, TrendingDown, Plus, Loader2 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
+// Local sales data for visualization
+const salesData = [
+  { date: '2024-01-01', revenue: 2400, orders: 24 },
+  { date: '2024-01-02', revenue: 1398, orders: 13 },
+  { date: '2024-01-03', revenue: 9800, orders: 98 },
+  { date: '2024-01-04', revenue: 3908, orders: 39 },
+  { date: '2024-01-05', revenue: 4800, orders: 48 },
+  { date: '2024-01-06', revenue: 3800, orders: 38 },
+  { date: '2024-01-07', revenue: 4300, orders: 43 },
+];
+
+const productPerformance = [
+  { id: '1', name: 'iPhone 15 Pro Max', sales: 156, revenue: 186744, trend: 'up' as const },
+  { id: '2', name: 'Samsung Galaxy S24', sales: 134, revenue: 147266, trend: 'up' as const },
+  { id: '3', name: 'MacBook Pro M3', sales: 89, revenue: 222311, trend: 'stable' as const },
+  { id: '4', name: 'Sony WH-1000XM5', sales: 245, revenue: 85555, trend: 'down' as const },
+];
+
 export default function SellerDashboard() {
-  const totalRevenue = mockSalesData.reduce((acc, day) => acc + day.revenue, 0);
-  const totalOrders = mockSalesData.reduce((acc, day) => acc + day.orders, 0);
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalRevenue: 0,
+    totalOrders: 0,
+    activeProducts: 0,
+    outOfStock: 0
+  });
+
+  useEffect(() => {
+    if (user) {
+      fetchSellerStats();
+    }
+  }, [user]);
+
+  const fetchSellerStats = async () => {
+    try {
+      // Fetch store for current user
+      const { data: store } = await supabase
+        .from('stores')
+        .select('id')
+        .eq('owner_id', user?.id)
+        .single();
+
+      if (store) {
+        // Fetch products
+        const { data: products } = await supabase
+          .from('products')
+          .select('id, stock_quantity, is_active')
+          .eq('store_id', store.id);
+
+        // Fetch orders
+        const { data: orderItems } = await supabase
+          .from('order_items')
+          .select('subtotal, quantity')
+          .eq('store_id', store.id);
+
+        const totalRevenue = (orderItems || []).reduce((sum, item) => sum + Number(item.subtotal), 0);
+        const totalOrders = (orderItems || []).length;
+        const activeProducts = (products || []).filter(p => p.is_active).length;
+        const outOfStock = (products || []).filter(p => p.stock_quantity === 0).length;
+
+        setStats({ totalRevenue, totalOrders, activeProducts, outOfStock });
+      }
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const totalRevenue = salesData.reduce((acc, day) => acc + day.revenue, 0);
+  const totalOrders = salesData.reduce((acc, day) => acc + day.orders, 0);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -31,9 +109,9 @@ export default function SellerDashboard() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${totalRevenue.toLocaleString()}</div>
+              <div className="text-2xl font-bold">${stats.totalRevenue.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground mt-1">
-                <span className="text-emerald-500">+12.5%</span> from last week
+                From all orders
               </p>
             </CardContent>
           </Card>
@@ -44,9 +122,9 @@ export default function SellerDashboard() {
               <ShoppingCart className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalOrders}</div>
+              <div className="text-2xl font-bold">{stats.totalOrders}</div>
               <p className="text-xs text-muted-foreground mt-1">
-                <span className="text-emerald-500">+8.2%</span> from last week
+                Order items sold
               </p>
             </CardContent>
           </Card>
@@ -57,8 +135,8 @@ export default function SellerDashboard() {
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">24</div>
-              <p className="text-xs text-muted-foreground mt-1">3 out of stock</p>
+              <div className="text-2xl font-bold">{stats.activeProducts}</div>
+              <p className="text-xs text-muted-foreground mt-1">{stats.outOfStock} out of stock</p>
             </CardContent>
           </Card>
 
@@ -68,9 +146,11 @@ export default function SellerDashboard() {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${(totalRevenue / totalOrders).toFixed(2)}</div>
+              <div className="text-2xl font-bold">
+                ${stats.totalOrders > 0 ? (stats.totalRevenue / stats.totalOrders).toFixed(2) : '0.00'}
+              </div>
               <p className="text-xs text-muted-foreground mt-1">
-                <span className="text-emerald-500">+5.1%</span> from last week
+                Per order item
               </p>
             </CardContent>
           </Card>
@@ -92,7 +172,7 @@ export default function SellerDashboard() {
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={mockSalesData}>
+                  <LineChart data={salesData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis 
                       dataKey="date" 
@@ -117,7 +197,7 @@ export default function SellerDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {mockProductPerformance.map((product) => (
+                  {productPerformance.map((product) => (
                     <div key={product.id} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                       <div className="flex-1">
                         <p className="font-semibold">{product.name}</p>
