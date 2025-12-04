@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { ShoppingCart, Star } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Product } from '@/data/mockProducts';
+import { Product } from '@/types';
 import { useCart } from '@/contexts/CartContext';
 import { toast } from '@/hooks/use-toast';
 

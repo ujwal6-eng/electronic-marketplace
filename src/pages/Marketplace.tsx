@@ -10,9 +10,23 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { SlidersHorizontal, Grid3x3, List, X } from 'lucide-react';
-import { mockProducts, categories } from '@/data/mockProducts';
+import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { SlidersHorizontal, Grid3x3, List, X, Package } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+
+const categories = [
+  { id: 'phones', name: 'Phones' },
+  { id: 'laptops', name: 'Laptops' },
+  { id: 'tablets', name: 'Tablets' },
+  { id: 'audio', name: 'Audio' },
+  { id: 'wearables', name: 'Wearables' },
+  { id: 'gaming', name: 'Gaming' },
+];
+
+const conditions = ['new', 'used', 'refurbished'];
 
 export default function Marketplace() {
   const [searchParams] = useSearchParams();
@@ -25,15 +39,47 @@ export default function Marketplace() {
   const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
-  const brands = [...new Set(mockProducts.map(p => p.brand))];
-  const conditions = ['new', 'used', 'refurbished'];
+  const { data: products, isLoading } = useQuery({
+    queryKey: ['marketplace-products'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select(`
+          *,
+          product_images(image_url, is_primary),
+          stores(name, rating)
+        `)
+        .eq('is_active', true);
+      
+      if (error) throw error;
+      return data?.map(p => ({
+        id: p.id,
+        name: p.name,
+        price: Number(p.price),
+        image: p.product_images?.find((img: any) => img.is_primary)?.image_url || p.product_images?.[0]?.image_url || '/placeholder.svg',
+        category: p.brand || 'Electronics',
+        brand: p.brand || 'Unknown',
+        condition: p.condition,
+        rating: Number(p.rating) || 0,
+        reviews: p.total_reviews || 0,
+        inStock: p.stock_quantity > 0,
+        seller: {
+          name: p.stores?.name || 'Unknown Seller',
+          rating: Number(p.stores?.rating) || 0,
+          totalSales: 0
+        }
+      })) || [];
+    }
+  });
 
-  const filteredProducts = mockProducts.filter(product => {
+  const brands = [...new Set(products?.map(p => p.brand) || [])];
+
+  const filteredProducts = (products || []).filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesPrice = product.price >= priceRange[0] && product.price <= priceRange[1];
     const matchesBrand = selectedBrands.length === 0 || selectedBrands.includes(product.brand);
     const matchesCondition = selectedConditions.length === 0 || selectedConditions.includes(product.condition);
-    const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(product.category);
+    const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(product.category.toLowerCase());
     
     return matchesSearch && matchesPrice && matchesBrand && matchesCondition && matchesCategory;
   });
@@ -93,20 +139,22 @@ export default function Marketplace() {
         </div>
       </div>
 
-      <div>
-        <h3 className="font-semibold mb-3 text-foreground">Brand</h3>
-        <div className="space-y-2 max-h-48 overflow-y-auto">
-          {brands.map(brand => (
-            <label key={brand} className="flex items-center gap-2 cursor-pointer">
-              <Checkbox
-                checked={selectedBrands.includes(brand)}
-                onCheckedChange={() => toggleFilter(brand, selectedBrands, setSelectedBrands)}
-              />
-              <span className="text-sm text-foreground">{brand}</span>
-            </label>
-          ))}
+      {brands.length > 0 && (
+        <div>
+          <h3 className="font-semibold mb-3 text-foreground">Brand</h3>
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {brands.map(brand => (
+              <label key={brand} className="flex items-center gap-2 cursor-pointer">
+                <Checkbox
+                  checked={selectedBrands.includes(brand)}
+                  onCheckedChange={() => toggleFilter(brand, selectedBrands, setSelectedBrands)}
+                />
+                <span className="text-sm text-foreground">{brand}</span>
+              </label>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div>
         <h3 className="font-semibold mb-3 text-foreground">Condition</h3>
@@ -199,20 +247,34 @@ export default function Marketplace() {
           {sortedProducts.length} products found
         </div>
 
-        <div className={
-          viewMode === 'grid'
-            ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'
-            : 'flex flex-col gap-4'
-        }>
-          {sortedProducts.map(product => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
-
-        {sortedProducts.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">No products found. Try adjusting your filters.</p>
+        {isLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {[...Array(8)].map((_, i) => (
+              <Skeleton key={i} className="h-64 rounded-lg" />
+            ))}
           </div>
+        ) : sortedProducts.length > 0 ? (
+          <div className={
+            viewMode === 'grid'
+              ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'
+              : 'flex flex-col gap-4'
+          }>
+            {sortedProducts.map(product => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        ) : (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <Package className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="text-lg font-semibold mb-2">No products found</h3>
+              <p className="text-muted-foreground">
+                {searchQuery || activeFiltersCount > 0 
+                  ? 'Try adjusting your filters or search query.' 
+                  : 'No products are available yet. Check back soon!'}
+              </p>
+            </CardContent>
+          </Card>
         )}
       </div>
 

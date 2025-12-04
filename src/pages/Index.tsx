@@ -5,14 +5,74 @@ import { Footer } from "@/components/Footer";
 import { SearchBar } from "@/components/SearchBar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Smartphone, Laptop, Headphones, Zap, Shield, Truck, Tablet, Watch, Gamepad2 } from "lucide-react";
-import { mockProducts, categories } from "@/data/mockProducts";
 import { ProductCard } from "@/components/ProductCard";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+
+const categories = [
+  { id: 'phones', name: 'Phones', icon: 'Smartphone' },
+  { id: 'laptops', name: 'Laptops', icon: 'Laptop' },
+  { id: 'tablets', name: 'Tablets', icon: 'Tablet' },
+  { id: 'audio', name: 'Audio', icon: 'Headphones' },
+  { id: 'wearables', name: 'Wearables', icon: 'Watch' },
+  { id: 'gaming', name: 'Gaming', icon: 'Gamepad2' },
+];
 
 const Index = () => {
+  const { data: products, isLoading } = useQuery({
+    queryKey: ['featured-products'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select(`
+          *,
+          product_images(image_url, is_primary),
+          stores(name, rating)
+        `)
+        .eq('is_active', true)
+        .limit(6);
+      
+      if (error) throw error;
+      return data?.map(p => ({
+        id: p.id,
+        name: p.name,
+        price: Number(p.price),
+        image: p.product_images?.find((img: any) => img.is_primary)?.image_url || p.product_images?.[0]?.image_url || '/placeholder.svg',
+        category: p.brand || 'Electronics',
+        brand: p.brand || 'Unknown',
+        condition: p.condition,
+        rating: Number(p.rating) || 0,
+        reviews: p.total_reviews || 0,
+        inStock: p.stock_quantity > 0,
+        seller: {
+          name: p.stores?.name || 'Unknown Seller',
+          rating: Number(p.stores?.rating) || 0,
+          totalSales: 0
+        }
+      })) || [];
+    }
+  });
+
+  const { data: stats } = useQuery({
+    queryKey: ['platform-stats'],
+    queryFn: async () => {
+      const [productsCount, techniciansCount, usersCount] = await Promise.all([
+        supabase.from('products').select('id', { count: 'exact', head: true }),
+        supabase.from('technician_profiles').select('id', { count: 'exact', head: true }),
+        supabase.from('profiles').select('id', { count: 'exact', head: true })
+      ]);
+      return {
+        products: productsCount.count || 0,
+        technicians: techniciansCount.count || 0,
+        users: usersCount.count || 0
+      };
+    }
+  });
+
   return (
     <div className="min-h-screen bg-background pb-20">
       <Header />
@@ -40,17 +100,31 @@ const Index = () => {
             <Button variant="ghost">View All</Button>
           </Link>
         </div>
-        <Carousel className="w-full">
-          <CarouselContent>
-            {mockProducts.slice(0, 6).map(product => (
-              <CarouselItem key={product.id} className="md:basis-1/2 lg:basis-1/3 xl:basis-1/4">
-                <ProductCard product={product} />
-              </CarouselItem>
+        {isLoading ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="h-64 rounded-lg" />
             ))}
-          </CarouselContent>
-          <CarouselPrevious />
-          <CarouselNext />
-        </Carousel>
+          </div>
+        ) : products && products.length > 0 ? (
+          <Carousel className="w-full">
+            <CarouselContent>
+              {products.map(product => (
+                <CarouselItem key={product.id} className="md:basis-1/2 lg:basis-1/3 xl:basis-1/4">
+                  <ProductCard product={product} />
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            <CarouselPrevious />
+            <CarouselNext />
+          </Carousel>
+        ) : (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <p className="text-muted-foreground">No products available yet. Check back soon!</p>
+            </CardContent>
+          </Card>
+        )}
       </section>
 
       {/* Categories */}
@@ -123,15 +197,15 @@ const Index = () => {
           <CardContent className="py-8">
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <div className="text-3xl font-bold">10K+</div>
+                <div className="text-3xl font-bold">{stats?.products || 0}+</div>
                 <div className="text-sm opacity-90">Products</div>
               </div>
               <div>
-                <div className="text-3xl font-bold">500+</div>
+                <div className="text-3xl font-bold">{stats?.technicians || 0}+</div>
                 <div className="text-sm opacity-90">Technicians</div>
               </div>
               <div>
-                <div className="text-3xl font-bold">50K+</div>
+                <div className="text-3xl font-bold">{stats?.users || 0}+</div>
                 <div className="text-sm opacity-90">Users</div>
               </div>
             </div>
