@@ -1,12 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Bell, Package, Wrench, MessageSquare, Info, X } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent } from './ui/card';
 import { ScrollArea } from './ui/scroll-area';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet';
-import { mockNotifications, Notification } from '@/data/mockNotifications';
 import { useNavigate } from 'react-router-dom';
+
+interface Notification {
+  id: string;
+  type: 'order' | 'service' | 'forum' | 'system';
+  title: string;
+  message: string;
+  date: string;
+  read: boolean;
+  actionUrl?: string;
+}
 
 const iconMap = {
   order: Package,
@@ -16,7 +25,7 @@ const iconMap = {
 };
 
 export const NotificationCenter = () => {
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   

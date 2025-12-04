@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { MapPin, Star, Navigation } from 'lucide-react';
-import { Technician } from '@/data/mockServices';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
+import { Technician } from '@/types';
 
 interface ServiceMapProps {
   technicians: Technician[];
@@ -92,38 +92,44 @@ export const ServiceMap = ({ technicians, onTechnicianSelect }: ServiceMapProps)
             Browse available technicians in your area.
           </p>
           <div className="w-full max-w-2xl">
-            <p className="text-xs text-muted-foreground mb-3 font-medium">Available Technicians:</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {technicians.map((tech) => (
-                <div 
-                  key={tech.id} 
-                  className="flex items-center gap-3 p-4 bg-card rounded-lg border border-border hover:border-primary/50 hover:shadow-md transition-all"
-                >
-                  <img src={tech.avatar} alt={tech.name} className="w-12 h-12 rounded-full object-cover" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm truncate">{tech.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{tech.location.address}</p>
-                    <div className="flex items-center gap-3 mt-1">
-                      <div className="flex items-center gap-1">
-                        <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                        <span className="text-xs font-medium">{tech.rating}</span>
-                      </div>
-                      <span className="text-xs text-muted-foreground">${tech.hourlyRate}/hr</span>
-                    </div>
-                  </div>
-                  {onTechnicianSelect && (
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => onTechnicianSelect(tech)}
-                      className="shrink-0"
+            {technicians.length > 0 ? (
+              <>
+                <p className="text-xs text-muted-foreground mb-3 font-medium">Available Technicians:</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {technicians.map((tech) => (
+                    <div 
+                      key={tech.id} 
+                      className="flex items-center gap-3 p-4 bg-card rounded-lg border border-border hover:border-primary/50 hover:shadow-md transition-all"
                     >
-                      Book
-                    </Button>
-                  )}
+                      <img src={tech.avatar} alt={tech.name} className="w-12 h-12 rounded-full object-cover" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm truncate">{tech.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{tech.location.address}</p>
+                        <div className="flex items-center gap-3 mt-1">
+                          <div className="flex items-center gap-1">
+                            <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                            <span className="text-xs font-medium">{tech.rating}</span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">${tech.hourlyRate}/hr</span>
+                        </div>
+                      </div>
+                      {onTechnicianSelect && (
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => onTechnicianSelect(tech)}
+                          className="shrink-0"
+                        >
+                          Book
+                        </Button>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            ) : (
+              <p className="text-center text-muted-foreground">No technicians available in your area.</p>
+            )}
           </div>
         </Card>
       </div>
@@ -135,43 +141,45 @@ export const ServiceMap = ({ technicians, onTechnicianSelect }: ServiceMapProps)
       <div ref={mapContainer} className="w-full h-[400px]" />
       
       {/* Technician List Overlay */}
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background/95 to-transparent p-4">
-        <p className="text-xs text-muted-foreground mb-2 font-medium">Nearby Technicians:</p>
-        <div className="flex gap-3 overflow-x-auto pb-2">
-          {technicians.map((tech) => (
-            <div 
-              key={tech.id} 
-              onClick={() => handleSelectTechnician(tech)}
-              className={`flex-shrink-0 flex items-center gap-3 p-3 bg-card rounded-lg border cursor-pointer transition-all ${
-                selectedTechnician?.id === tech.id 
-                  ? 'border-primary shadow-md' 
-                  : 'border-border hover:border-primary/50'
-              }`}
-            >
-              <img src={tech.avatar} alt={tech.name} className="w-10 h-10 rounded-full object-cover" />
-              <div>
-                <p className="font-semibold text-sm">{tech.name}</p>
-                <div className="flex items-center gap-2">
-                  <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                  <span className="text-xs">{tech.rating}</span>
-                  <span className="text-xs text-muted-foreground">${tech.hourlyRate}/hr</span>
+      {technicians.length > 0 && (
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background/95 to-transparent p-4">
+          <p className="text-xs text-muted-foreground mb-2 font-medium">Nearby Technicians:</p>
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {technicians.map((tech) => (
+              <div 
+                key={tech.id} 
+                onClick={() => handleSelectTechnician(tech)}
+                className={`flex-shrink-0 flex items-center gap-3 p-3 bg-card rounded-lg border cursor-pointer transition-all ${
+                  selectedTechnician?.id === tech.id 
+                    ? 'border-primary shadow-md' 
+                    : 'border-border hover:border-primary/50'
+                }`}
+              >
+                <img src={tech.avatar} alt={tech.name} className="w-10 h-10 rounded-full object-cover" />
+                <div>
+                  <p className="font-semibold text-sm">{tech.name}</p>
+                  <div className="flex items-center gap-2">
+                    <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                    <span className="text-xs">{tech.rating}</span>
+                    <span className="text-xs text-muted-foreground">${tech.hourlyRate}/hr</span>
+                  </div>
                 </div>
+                {onTechnicianSelect && (
+                  <Button 
+                    size="sm" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onTechnicianSelect(tech);
+                    }}
+                  >
+                    Book
+                  </Button>
+                )}
               </div>
-              {onTechnicianSelect && (
-                <Button 
-                  size="sm" 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onTechnicianSelect(tech);
-                  }}
-                >
-                  Book
-                </Button>
-              )}
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Selected Technician Popup */}
       {selectedTechnician && (

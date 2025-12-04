@@ -7,18 +7,122 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ShoppingCart, Star, Heart, Share2, ChevronLeft, Minus, Plus, Store } from 'lucide-react';
-import { mockProducts } from '@/data/mockProducts';
 import { useCart } from '@/contexts/CartContext';
 import { toast } from '@/hooks/use-toast';
 import { ProductCard } from '@/components/ProductCard';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function ProductDetails() {
   const { id } = useParams();
-  const product = mockProducts.find(p => p.id === id);
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
   const { addToCart } = useCart();
+
+  const { data: product, isLoading } = useQuery({
+    queryKey: ['product', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select(`
+          *,
+          product_images(image_url, is_primary, alt_text),
+          product_specifications(spec_key, spec_value),
+          stores(name, rating, total_reviews)
+        `)
+        .eq('id', id)
+        .single();
+      
+      if (error) throw error;
+      
+      const images = data.product_images?.map((img: any) => img.image_url) || ['/placeholder.svg'];
+      const specs = data.product_specifications?.reduce((acc: Record<string, string>, spec: any) => {
+        acc[spec.spec_key] = spec.spec_value;
+        return acc;
+      }, {}) || {};
+
+      return {
+        id: data.id,
+        name: data.name,
+        price: Number(data.price),
+        originalPrice: data.discount_price ? Number(data.price) : undefined,
+        image: images[0],
+        images,
+        category: data.brand || 'Electronics',
+        brand: data.brand || 'Unknown',
+        condition: data.condition,
+        rating: Number(data.rating) || 0,
+        reviews: data.total_reviews || 0,
+        inStock: data.stock_quantity > 0,
+        description: data.description,
+        specs,
+        seller: {
+          name: data.stores?.name || 'Unknown Seller',
+          rating: Number(data.stores?.rating) || 0,
+          totalSales: data.stores?.total_reviews || 0
+        }
+      };
+    },
+    enabled: !!id
+  });
+
+  const { data: relatedProducts } = useQuery({
+    queryKey: ['related-products', product?.category],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select(`
+          *,
+          product_images(image_url, is_primary),
+          stores(name, rating)
+        `)
+        .eq('is_active', true)
+        .neq('id', id)
+        .limit(4);
+      
+      if (error) throw error;
+      return data?.map(p => ({
+        id: p.id,
+        name: p.name,
+        price: Number(p.price),
+        image: p.product_images?.find((img: any) => img.is_primary)?.image_url || p.product_images?.[0]?.image_url || '/placeholder.svg',
+        category: p.brand || 'Electronics',
+        brand: p.brand || 'Unknown',
+        condition: p.condition,
+        rating: Number(p.rating) || 0,
+        reviews: p.total_reviews || 0,
+        inStock: p.stock_quantity > 0,
+        seller: {
+          name: p.stores?.name || 'Unknown Seller',
+          rating: Number(p.stores?.rating) || 0,
+          totalSales: 0
+        }
+      })) || [];
+    },
+    enabled: !!product
+  });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background pb-20">
+        <Header />
+        <div className="container mx-auto px-4 py-6 space-y-8">
+          <Skeleton className="h-10 w-40" />
+          <div className="grid lg:grid-cols-2 gap-8">
+            <Skeleton className="aspect-square rounded-xl" />
+            <div className="space-y-4">
+              <Skeleton className="h-8 w-3/4" />
+              <Skeleton className="h-6 w-1/2" />
+              <Skeleton className="h-12 w-32" />
+              <Skeleton className="h-24 w-full" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -34,9 +138,6 @@ export default function ProductDetails() {
   }
 
   const images = product.images || [product.image];
-  const relatedProducts = mockProducts.filter(p => 
-    p.category === product.category && p.id !== product.id
-  ).slice(0, 4);
 
   const handleAddToCart = () => {
     addToCart({
@@ -152,7 +253,7 @@ export default function ProductDetails() {
               </CardContent>
             </Card>
 
-            {product.specs && (
+            {product.specs && Object.keys(product.specs).length > 0 && (
               <Card>
                 <CardHeader>
                   <CardTitle>Specifications</CardTitle>
@@ -216,7 +317,7 @@ export default function ProductDetails() {
         </div>
 
         {/* Related Products */}
-        {relatedProducts.length > 0 && (
+        {relatedProducts && relatedProducts.length > 0 && (
           <div className="space-y-4">
             <h2 className="text-2xl font-bold text-foreground">Related Products</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
