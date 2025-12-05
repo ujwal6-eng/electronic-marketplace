@@ -263,7 +263,7 @@ export default function ProductDetails() {
                     {Object.entries(product.specs).map(([key, value]) => (
                       <div key={key} className="flex justify-between py-2 border-b border-border last:border-0">
                         <dt className="font-medium text-muted-foreground">{key}</dt>
-                        <dd className="text-foreground">{value}</dd>
+                        <dd className="text-foreground">{String(value)}</dd>
                       </div>
                     ))}
                   </dl>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
@@ -10,9 +10,31 @@ import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { mockTechnicians, serviceCategories } from '@/data/mockServices';
+import { Skeleton } from '@/components/ui/skeleton';
+import { supabase } from '@/integrations/supabase/client';
 import { ChevronLeft, ChevronRight, Star, MapPin, Clock, Home, Building, Package } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+
+interface Technician {
+  id: string;
+  user_id: string;
+  hourly_rate: number | null;
+  rating: number;
+  total_reviews: number;
+  service_area: string | null;
+  bio: string | null;
+  profile?: {
+    first_name: string | null;
+    last_name: string | null;
+    avatar_url: string | null;
+  };
+}
+
+interface ServiceCategory {
+  id: string;
+  name: string;
+  slug: string;
+}
 
 export default function ServiceBooking() {
   const { category } = useParams();
@@ -22,6 +44,9 @@ export default function ServiceBooking() {
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [selectedTechnician, setSelectedTechnician] = useState<string>('');
   const [serviceLocation, setServiceLocation] = useState<string>('home');
+  const [categoryInfo, setCategoryInfo] = useState<ServiceCategory | null>(null);
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
+  const [loading, setLoading] = useState(true);
   
   const [formData, setFormData] = useState({
     deviceType: '',
@@ -30,11 +55,46 @@ export default function ServiceBooking() {
     address: '',
   });
 
-  const categoryInfo = serviceCategories.find(c => c.id === category);
   const availableTimes = ['9:00 AM', '10:00 AM', '11:00 AM', '2:00 PM', '3:00 PM', '4:00 PM'];
-  const filteredTechnicians = mockTechnicians.filter(t => 
-    t.specializations.some(s => s.toLowerCase().includes(category || ''))
-  );
+
+  useEffect(() => {
+    fetchData();
+  }, [category]);
+
+  const fetchData = async () => {
+    try {
+      const [categoryRes, techniciansRes] = await Promise.all([
+        supabase.from('service_categories').select('*').eq('slug', category).maybeSingle(),
+        supabase.from('technician_profiles').select(`
+          id, user_id, hourly_rate, rating, total_reviews, service_area, bio
+        `).eq('verified', 'verified').eq('available', true)
+      ]);
+
+      if (categoryRes.data) setCategoryInfo(categoryRes.data);
+      
+      if (techniciansRes.data) {
+        // Fetch profiles for technicians
+        const userIds = techniciansRes.data.map(t => t.user_id);
+        const profilesRes = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name, avatar_url')
+          .in('id', userIds);
+        
+        const profilesMap = new Map(profilesRes.data?.map(p => [p.id, p]) || []);
+        
+        const techsWithProfiles = techniciansRes.data.map(tech => ({
+          ...tech,
+          profile: profilesMap.get(tech.user_id)
+        }));
+        
+        setTechnicians(techsWithProfiles);
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleNext = () => {
     if (step === 1 && (!formData.deviceType || !formData.issue)) {
@@ -59,6 +119,19 @@ export default function ServiceBooking() {
     });
     navigate('/services');
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container mx-auto px-4 py-6 pb-24 max-w-3xl">
+          <Skeleton className="h-8 w-32 mb-4" />
+          <Skeleton className="h-64 w-full" />
+        </main>
+        <BottomNav />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -101,7 +174,7 @@ export default function ServiceBooking() {
           <Card>
             <CardHeader>
               <CardTitle>Device & Issue Details</CardTitle>
-              <CardDescription>Tell us about your {categoryInfo?.name.toLowerCase()}</CardDescription>
+              <CardDescription>Tell us about your {categoryInfo?.name?.toLowerCase() || 'device'}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -190,41 +263,50 @@ export default function ServiceBooking() {
               <CardDescription>Select from available technicians</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {filteredTechnicians.map((tech) => (
-                <Card 
-                  key={tech.id}
-                  className={`cursor-pointer transition-all ${
-                    selectedTechnician === tech.id ? 'border-primary shadow-md' : 'hover:shadow-sm'
-                  }`}
-                  onClick={() => setSelectedTechnician(tech.id)}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-4">
-                      <img src={tech.avatar} alt={tech.name} className="w-16 h-16 rounded-full" />
-                      <div className="flex-1">
-                        <div className="flex items-start justify-between mb-2">
-                          <div>
-                            <h3 className="font-semibold">{tech.name}</h3>
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                              <span>{tech.rating} ({tech.reviews} reviews)</span>
+              {technicians.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No technicians available at the moment</p>
+              ) : (
+                technicians.map((tech) => (
+                  <Card 
+                    key={tech.id}
+                    className={`cursor-pointer transition-all ${
+                      selectedTechnician === tech.id ? 'border-primary shadow-md' : 'hover:shadow-sm'
+                    }`}
+                    onClick={() => setSelectedTechnician(tech.id)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-4">
+                        <img 
+                          src={tech.profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${tech.user_id}`} 
+                          alt="Technician" 
+                          className="w-16 h-16 rounded-full" 
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <h3 className="font-semibold">
+                                {tech.profile?.first_name && tech.profile?.last_name 
+                                  ? `${tech.profile.first_name} ${tech.profile.last_name}`
+                                  : 'Technician'}
+                              </h3>
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                                <span>{tech.rating?.toFixed(1) || '0.0'} ({tech.total_reviews || 0} reviews)</span>
+                              </div>
                             </div>
+                            {tech.hourly_rate && (
+                              <Badge variant="secondary">${tech.hourly_rate}/hr</Badge>
+                            )}
                           </div>
-                          <Badge variant="secondary">${tech.hourlyRate}/hr</Badge>
+                          {tech.service_area && (
+                            <p className="text-sm text-muted-foreground">{tech.service_area}</p>
+                          )}
                         </div>
-                        <div className="flex flex-wrap gap-1 mb-2">
-                          {tech.specializations.slice(0, 3).map((spec) => (
-                            <Badge key={spec} variant="outline" className="text-xs">
-                              {spec}
-                            </Badge>
-                          ))}
-                        </div>
-                        <p className="text-sm text-muted-foreground">{tech.serviceArea}</p>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                ))
+              )}
               <Button onClick={handleNext} className="w-full" disabled={!selectedTechnician}>
                 Continue <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
@@ -301,7 +383,7 @@ export default function ServiceBooking() {
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Technician:</span>
                   <span className="font-medium">
-                    {filteredTechnicians.find(t => t.id === selectedTechnician)?.name}
+                    {technicians.find(t => t.id === selectedTechnician)?.profile?.first_name || 'Selected Technician'}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">

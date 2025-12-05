@@ -143,7 +143,7 @@ export default function Marketplace() {
         <div>
           <h3 className="font-semibold mb-3 text-foreground">Brand</h3>
           <div className="space-y-2 max-h-48 overflow-y-auto">
-            {brands.map(brand => (
+          {brands.map((brand: string) => (
               <label key={brand} className="flex items-center gap-2 cursor-pointer">
                 <Checkbox
                   checked={selectedBrands.includes(brand)}
