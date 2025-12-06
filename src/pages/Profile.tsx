@@ -203,6 +203,22 @@ export default function Profile() {
 
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          {roles.includes('seller') && (
+            <Link to="/seller/dashboard">
+              <Card className="hover:shadow-md transition-shadow cursor-pointer border-primary/20 bg-primary/5">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-primary">
+                    <ShoppingBag className="h-5 w-5" />
+                    Seller Dashboard
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">Manage your store and products</p>
+                </CardContent>
+              </Card>
+            </Link>
+          )}
+          
           <Link to="/orders">
             <Card className="hover:shadow-md transition-shadow cursor-pointer">
               <CardHeader>
