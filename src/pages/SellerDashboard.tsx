@@ -7,86 +7,175 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { DollarSign, Package, ShoppingCart, TrendingUp, TrendingDown, Plus, Loader2 } from 'lucide-react';
+import { DollarSign, Package, ShoppingCart, TrendingUp, Plus, Loader2, Store } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Link } from 'react-router-dom';
 
-// Local sales data for visualization
-const salesData = [
-  { date: '2024-01-01', revenue: 2400, orders: 24 },
-  { date: '2024-01-02', revenue: 1398, orders: 13 },
-  { date: '2024-01-03', revenue: 9800, orders: 98 },
-  { date: '2024-01-04', revenue: 3908, orders: 39 },
-  { date: '2024-01-05', revenue: 4800, orders: 48 },
-  { date: '2024-01-06', revenue: 3800, orders: 38 },
-  { date: '2024-01-07', revenue: 4300, orders: 43 },
-];
+interface ProductPerformance {
+  id: string;
+  name: string;
+  sales: number;
+  revenue: number;
+}
 
-const productPerformance = [
-  { id: '1', name: 'iPhone 15 Pro Max', sales: 156, revenue: 186744, trend: 'up' as const },
-  { id: '2', name: 'Samsung Galaxy S24', sales: 134, revenue: 147266, trend: 'up' as const },
-  { id: '3', name: 'MacBook Pro M3', sales: 89, revenue: 222311, trend: 'stable' as const },
-  { id: '4', name: 'Sony WH-1000XM5', sales: 245, revenue: 85555, trend: 'down' as const },
-];
+interface SalesDataPoint {
+  date: string;
+  revenue: number;
+  orders: number;
+}
 
 export default function SellerDashboard() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [store, setStore] = useState<{ id: string; name: string } | null>(null);
   const [stats, setStats] = useState({
     totalRevenue: 0,
     totalOrders: 0,
     activeProducts: 0,
     outOfStock: 0
   });
+  const [products, setProducts] = useState<Array<{
+    id: string;
+    name: string;
+    price: number;
+    stock_quantity: number;
+    is_active: boolean;
+  }>>([]);
+  const [topProducts, setTopProducts] = useState<ProductPerformance[]>([]);
+  const [salesData, setSalesData] = useState<SalesDataPoint[]>([]);
 
   useEffect(() => {
     if (user) {
-      fetchSellerStats();
+      fetchSellerData();
     }
   }, [user]);
 
-  const fetchSellerStats = async () => {
+  const fetchSellerData = async () => {
     try {
       // Fetch store for current user
-      const { data: store } = await supabase
+      const { data: storeData } = await supabase
         .from('stores')
-        .select('id')
+        .select('id, name')
         .eq('owner_id', user?.id)
-        .single();
+        .maybeSingle();
 
-      if (store) {
+      if (storeData) {
+        setStore(storeData);
+
         // Fetch products
-        const { data: products } = await supabase
+        const { data: productsData } = await supabase
           .from('products')
-          .select('id, stock_quantity, is_active')
-          .eq('store_id', store.id);
+          .select('id, name, price, stock_quantity, is_active')
+          .eq('store_id', storeData.id);
 
-        // Fetch orders
+        setProducts(productsData || []);
+
+        // Fetch order items with order details
         const { data: orderItems } = await supabase
           .from('order_items')
-          .select('subtotal, quantity')
-          .eq('store_id', store.id);
+          .select('id, subtotal, quantity, product_id, created_at')
+          .eq('store_id', storeData.id);
 
         const totalRevenue = (orderItems || []).reduce((sum, item) => sum + Number(item.subtotal), 0);
         const totalOrders = (orderItems || []).length;
-        const activeProducts = (products || []).filter(p => p.is_active).length;
-        const outOfStock = (products || []).filter(p => p.stock_quantity === 0).length;
+        const activeProducts = (productsData || []).filter(p => p.is_active).length;
+        const outOfStock = (productsData || []).filter(p => p.stock_quantity === 0).length;
 
         setStats({ totalRevenue, totalOrders, activeProducts, outOfStock });
+
+        // Calculate top performing products
+        if (orderItems && orderItems.length > 0 && productsData) {
+          const productSales: Record<string, { sales: number; revenue: number }> = {};
+          
+          orderItems.forEach(item => {
+            if (!productSales[item.product_id]) {
+              productSales[item.product_id] = { sales: 0, revenue: 0 };
+            }
+            productSales[item.product_id].sales += item.quantity;
+            productSales[item.product_id].revenue += Number(item.subtotal);
+          });
+
+          const topProductsList: ProductPerformance[] = Object.entries(productSales)
+            .map(([productId, data]) => {
+              const product = productsData.find(p => p.id === productId);
+              return {
+                id: productId,
+                name: product?.name || 'Unknown Product',
+                sales: data.sales,
+                revenue: data.revenue
+              };
+            })
+            .sort((a, b) => b.revenue - a.revenue)
+            .slice(0, 5);
+
+          setTopProducts(topProductsList);
+
+          // Calculate daily sales for the past 7 days
+          const dailySales: Record<string, { revenue: number; orders: number }> = {};
+          const today = new Date();
+          
+          for (let i = 6; i >= 0; i--) {
+            const date = new Date(today);
+            date.setDate(date.getDate() - i);
+            const dateStr = date.toISOString().split('T')[0];
+            dailySales[dateStr] = { revenue: 0, orders: 0 };
+          }
+
+          orderItems.forEach(item => {
+            const dateStr = new Date(item.created_at).toISOString().split('T')[0];
+            if (dailySales[dateStr]) {
+              dailySales[dateStr].revenue += Number(item.subtotal);
+              dailySales[dateStr].orders += 1;
+            }
+          });
+
+          const salesDataList: SalesDataPoint[] = Object.entries(dailySales).map(([date, data]) => ({
+            date,
+            revenue: data.revenue,
+            orders: data.orders
+          }));
+
+          setSalesData(salesDataList);
+        }
       }
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      console.error('Error fetching seller data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const totalRevenue = salesData.reduce((acc, day) => acc + day.revenue, 0);
-  const totalOrders = salesData.reduce((acc, day) => acc + day.orders, 0);
-
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!store) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container mx-auto px-4 py-6 pb-24">
+          <Card className="max-w-md mx-auto mt-12">
+            <CardHeader className="text-center">
+              <Store className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+              <CardTitle>No Store Found</CardTitle>
+              <CardDescription>
+                You haven't created a store yet. Create your store to start selling.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-center">
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Store
+              </Button>
+            </CardContent>
+          </Card>
+        </main>
+        <BottomNav />
+        <Footer />
       </div>
     );
   }
@@ -98,7 +187,7 @@ export default function SellerDashboard() {
       <main className="container mx-auto px-4 py-6 pb-24">
         <div className="mb-6">
           <h1 className="text-3xl font-bold mb-2">Seller Dashboard</h1>
-          <p className="text-muted-foreground">Manage your products and track sales</p>
+          <p className="text-muted-foreground">Manage your store: {store.name}</p>
         </div>
 
         {/* Stats Overview */}
@@ -171,21 +260,27 @@ export default function SellerDashboard() {
                 <CardDescription>Daily revenue for the past week</CardDescription>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={salesData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
-                      dataKey="date" 
-                      tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    />
-                    <YAxis />
-                    <Tooltip 
-                      formatter={(value: number) => `$${value.toLocaleString()}`}
-                      labelFormatter={(label) => new Date(label).toLocaleDateString()}
-                    />
-                    <Line type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
+                {salesData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={salesData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="date" 
+                        tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      />
+                      <YAxis />
+                      <Tooltip 
+                        formatter={(value: number) => `$${value.toLocaleString()}`}
+                        labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                      />
+                      <Line type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <p>No sales data yet. Start selling to see your analytics!</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -196,33 +291,25 @@ export default function SellerDashboard() {
                 <CardDescription>Your best-selling products</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {productPerformance.map((product) => (
-                    <div key={product.id} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                      <div className="flex-1">
-                        <p className="font-semibold">{product.name}</p>
-                        <p className="text-sm text-muted-foreground">{product.sales} sales</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold">${product.revenue.toLocaleString()}</p>
-                        <div className="flex items-center gap-1 text-sm">
-                          {product.trend === 'up' ? (
-                            <TrendingUp className="h-3 w-3 text-emerald-500" />
-                          ) : product.trend === 'down' ? (
-                            <TrendingDown className="h-3 w-3 text-red-500" />
-                          ) : null}
-                          <span className={
-                            product.trend === 'up' ? 'text-emerald-500' : 
-                            product.trend === 'down' ? 'text-red-500' : 
-                            'text-muted-foreground'
-                          }>
-                            {product.trend}
-                          </span>
+                {topProducts.length > 0 ? (
+                  <div className="space-y-4">
+                    {topProducts.map((product) => (
+                      <div key={product.id} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                        <div className="flex-1">
+                          <p className="font-semibold">{product.name}</p>
+                          <p className="text-sm text-muted-foreground">{product.sales} sales</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold">${product.revenue.toLocaleString()}</p>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No product sales yet. Your top performers will appear here.</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -242,9 +329,29 @@ export default function SellerDashboard() {
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-center text-muted-foreground py-8">
-                  Product management interface coming soon
-                </p>
+                {products.length > 0 ? (
+                  <div className="space-y-4">
+                    {products.map((product) => (
+                      <div key={product.id} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                        <div className="flex-1">
+                          <p className="font-semibold">{product.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Stock: {product.stock_quantity} • ${Number(product.price).toFixed(2)}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs px-2 py-1 rounded ${product.is_active ? 'bg-emerald-500/20 text-emerald-600' : 'bg-red-500/20 text-red-600'}`}>
+                            {product.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No products yet. Add your first product to start selling!</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -257,7 +364,7 @@ export default function SellerDashboard() {
               </CardHeader>
               <CardContent>
                 <p className="text-center text-muted-foreground py-8">
-                  Order fulfillment interface coming soon
+                  No pending orders. Your orders will appear here when customers purchase.
                 </p>
               </CardContent>
             </Card>
