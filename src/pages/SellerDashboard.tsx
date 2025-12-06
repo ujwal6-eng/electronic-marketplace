@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { DollarSign, Package, ShoppingCart, TrendingUp, Plus, Loader2, Store } from 'lucide-react';
@@ -32,10 +33,21 @@ export default function SellerDashboard() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [creatingProduct, setCreatingProduct] = useState(false);
+  const [storeDialogOpen, setStoreDialogOpen] = useState(false);
+  const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [store, setStore] = useState<{ id: string; name: string } | null>(null);
   const [storeName, setStoreName] = useState('');
   const [storeDescription, setStoreDescription] = useState('');
+  
+  // Product form state
+  const [productName, setProductName] = useState('');
+  const [productDescription, setProductDescription] = useState('');
+  const [productPrice, setProductPrice] = useState('');
+  const [productStock, setProductStock] = useState('');
+  const [productCondition, setProductCondition] = useState<'new' | 'used' | 'refurbished'>('new');
+  const [productBrand, setProductBrand] = useState('');
+  
   const [stats, setStats] = useState({
     totalRevenue: 0,
     totalOrders: 0,
@@ -60,7 +72,6 @@ export default function SellerDashboard() {
 
   const fetchSellerData = async () => {
     try {
-      // Fetch store for current user
       const { data: storeData } = await supabase
         .from('stores')
         .select('id, name')
@@ -70,7 +81,6 @@ export default function SellerDashboard() {
       if (storeData) {
         setStore(storeData);
 
-        // Fetch products
         const { data: productsData } = await supabase
           .from('products')
           .select('id, name, price, stock_quantity, is_active')
@@ -78,7 +88,6 @@ export default function SellerDashboard() {
 
         setProducts(productsData || []);
 
-        // Fetch order items with order details
         const { data: orderItems } = await supabase
           .from('order_items')
           .select('id, subtotal, quantity, product_id, created_at')
@@ -91,7 +100,6 @@ export default function SellerDashboard() {
 
         setStats({ totalRevenue, totalOrders, activeProducts, outOfStock });
 
-        // Calculate top performing products
         if (orderItems && orderItems.length > 0 && productsData) {
           const productSales: Record<string, { sales: number; revenue: number }> = {};
           
@@ -118,7 +126,6 @@ export default function SellerDashboard() {
 
           setTopProducts(topProductsList);
 
-          // Calculate daily sales for the past 7 days
           const dailySales: Record<string, { revenue: number; orders: number }> = {};
           const today = new Date();
           
@@ -166,7 +173,6 @@ export default function SellerDashboard() {
 
     setCreating(true);
     try {
-      // Generate slug from store name
       const slug = storeName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
       
       const { data, error } = await supabase
@@ -183,7 +189,7 @@ export default function SellerDashboard() {
       if (error) throw error;
 
       setStore(data);
-      setDialogOpen(false);
+      setStoreDialogOpen(false);
       setStoreName('');
       setStoreDescription('');
       toast.success('Store created successfully!');
@@ -193,6 +199,64 @@ export default function SellerDashboard() {
     } finally {
       setCreating(false);
     }
+  };
+
+  const handleCreateProduct = async () => {
+    if (!productName.trim()) {
+      toast.error('Please enter a product name');
+      return;
+    }
+    if (!productPrice || Number(productPrice) <= 0) {
+      toast.error('Please enter a valid price');
+      return;
+    }
+    if (!store) {
+      toast.error('Store not found');
+      return;
+    }
+
+    setCreatingProduct(true);
+    try {
+      const slug = productName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Date.now();
+      
+      const { data, error } = await supabase
+        .from('products')
+        .insert({
+          name: productName,
+          slug,
+          description: productDescription || null,
+          price: Number(productPrice),
+          stock_quantity: Number(productStock) || 0,
+          condition: productCondition,
+          brand: productBrand || null,
+          store_id: store.id,
+          is_active: true
+        })
+        .select('id, name, price, stock_quantity, is_active')
+        .single();
+
+      if (error) throw error;
+
+      setProducts(prev => [...prev, data]);
+      setStats(prev => ({ ...prev, activeProducts: prev.activeProducts + 1 }));
+      setProductDialogOpen(false);
+      resetProductForm();
+      toast.success('Product added successfully!');
+    } catch (error: any) {
+      console.error('Error creating product:', error);
+      toast.error(error.message || 'Failed to add product');
+    } finally {
+      setCreatingProduct(false);
+    }
+  };
+
+  const resetProductForm = () => {
+    setProductName('');
+    setProductDescription('');
+    setProductPrice('');
+    setProductStock('');
+    setProductCondition('new');
+    setProductBrand('');
   };
 
   if (loading) {
@@ -217,7 +281,7 @@ export default function SellerDashboard() {
               </CardDescription>
             </CardHeader>
             <CardContent className="text-center">
-              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <Dialog open={storeDialogOpen} onOpenChange={setStoreDialogOpen}>
                 <DialogTrigger asChild>
                   <Button>
                     <Plus className="h-4 w-4 mr-2" />
@@ -296,9 +360,7 @@ export default function SellerDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">${stats.totalRevenue.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                From all orders
-              </p>
+              <p className="text-xs text-muted-foreground mt-1">From all orders</p>
             </CardContent>
           </Card>
 
@@ -309,9 +371,7 @@ export default function SellerDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalOrders}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Order items sold
-              </p>
+              <p className="text-xs text-muted-foreground mt-1">Order items sold</p>
             </CardContent>
           </Card>
 
@@ -335,9 +395,7 @@ export default function SellerDashboard() {
               <div className="text-2xl font-bold">
                 ${stats.totalOrders > 0 ? (stats.totalRevenue / stats.totalOrders).toFixed(2) : '0.00'}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Per order item
-              </p>
+              <p className="text-xs text-muted-foreground mt-1">Per order item</p>
             </CardContent>
           </Card>
         </div>
@@ -350,7 +408,6 @@ export default function SellerDashboard() {
           </TabsList>
 
           <TabsContent value="analytics" className="space-y-6">
-            {/* Revenue Chart */}
             <Card>
               <CardHeader>
                 <CardTitle>Revenue Overview</CardTitle>
@@ -381,7 +438,6 @@ export default function SellerDashboard() {
               </CardContent>
             </Card>
 
-            {/* Product Performance */}
             <Card>
               <CardHeader>
                 <CardTitle>Top Performing Products</CardTitle>
@@ -419,10 +475,104 @@ export default function SellerDashboard() {
                     <CardTitle>Product Management</CardTitle>
                     <CardDescription>Manage your product inventory</CardDescription>
                   </div>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Product
-                  </Button>
+                  <Dialog open={productDialogOpen} onOpenChange={setProductDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Product
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Add New Product</DialogTitle>
+                        <DialogDescription>
+                          Enter the details for your new product.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 pt-4 max-h-[60vh] overflow-y-auto">
+                        <div className="space-y-2">
+                          <Label htmlFor="productName">Product Name *</Label>
+                          <Input
+                            id="productName"
+                            placeholder="Enter product name"
+                            value={productName}
+                            onChange={(e) => setProductName(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="productDescription">Description</Label>
+                          <Textarea
+                            id="productDescription"
+                            placeholder="Describe your product..."
+                            value={productDescription}
+                            onChange={(e) => setProductDescription(e.target.value)}
+                            rows={3}
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="productPrice">Price ($) *</Label>
+                            <Input
+                              id="productPrice"
+                              type="number"
+                              placeholder="0.00"
+                              value={productPrice}
+                              onChange={(e) => setProductPrice(e.target.value)}
+                              min="0"
+                              step="0.01"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="productStock">Stock Quantity</Label>
+                            <Input
+                              id="productStock"
+                              type="number"
+                              placeholder="0"
+                              value={productStock}
+                              onChange={(e) => setProductStock(e.target.value)}
+                              min="0"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="productBrand">Brand</Label>
+                          <Input
+                            id="productBrand"
+                            placeholder="Enter brand name"
+                            value={productBrand}
+                            onChange={(e) => setProductBrand(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="productCondition">Condition</Label>
+                          <Select value={productCondition} onValueChange={(v: 'new' | 'used' | 'refurbished') => setProductCondition(v)}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select condition" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="new">New</SelectItem>
+                              <SelectItem value="used">Used</SelectItem>
+                              <SelectItem value="refurbished">Refurbished</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <Button 
+                          className="w-full" 
+                          onClick={handleCreateProduct}
+                          disabled={creatingProduct}
+                        >
+                          {creatingProduct ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Adding...
+                            </>
+                          ) : (
+                            'Add Product'
+                          )}
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </CardHeader>
               <CardContent>
