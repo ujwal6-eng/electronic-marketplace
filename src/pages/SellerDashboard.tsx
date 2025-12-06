@@ -5,11 +5,15 @@ import { Footer } from '@/components/Footer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { DollarSign, Package, ShoppingCart, TrendingUp, Plus, Loader2, Store } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 
 interface ProductPerformance {
   id: string;
@@ -27,7 +31,11 @@ interface SalesDataPoint {
 export default function SellerDashboard() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [store, setStore] = useState<{ id: string; name: string } | null>(null);
+  const [storeName, setStoreName] = useState('');
+  const [storeDescription, setStoreDescription] = useState('');
   const [stats, setStats] = useState({
     totalRevenue: 0,
     totalOrders: 0,
@@ -145,6 +153,48 @@ export default function SellerDashboard() {
     }
   };
 
+  const handleCreateStore = async () => {
+    if (!storeName.trim()) {
+      toast.error('Please enter a store name');
+      return;
+    }
+
+    if (!user) {
+      toast.error('You must be logged in to create a store');
+      return;
+    }
+
+    setCreating(true);
+    try {
+      // Generate slug from store name
+      const slug = storeName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      
+      const { data, error } = await supabase
+        .from('stores')
+        .insert({
+          name: storeName,
+          slug: slug + '-' + Date.now(),
+          description: storeDescription || null,
+          owner_id: user.id
+        })
+        .select('id, name')
+        .single();
+
+      if (error) throw error;
+
+      setStore(data);
+      setDialogOpen(false);
+      setStoreName('');
+      setStoreDescription('');
+      toast.success('Store created successfully!');
+    } catch (error: any) {
+      console.error('Error creating store:', error);
+      toast.error(error.message || 'Failed to create store');
+    } finally {
+      setCreating(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -167,10 +217,57 @@ export default function SellerDashboard() {
               </CardDescription>
             </CardHeader>
             <CardContent className="text-center">
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Create Store
-              </Button>
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Store
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Create Your Store</DialogTitle>
+                    <DialogDescription>
+                      Enter the details for your new store. You can update these later.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 pt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="storeName">Store Name *</Label>
+                      <Input
+                        id="storeName"
+                        placeholder="Enter your store name"
+                        value={storeName}
+                        onChange={(e) => setStoreName(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="storeDescription">Description (optional)</Label>
+                      <Textarea
+                        id="storeDescription"
+                        placeholder="Describe your store..."
+                        value={storeDescription}
+                        onChange={(e) => setStoreDescription(e.target.value)}
+                        rows={3}
+                      />
+                    </div>
+                    <Button 
+                      className="w-full" 
+                      onClick={handleCreateStore}
+                      disabled={creating}
+                    >
+                      {creating ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Creating...
+                        </>
+                      ) : (
+                        'Create Store'
+                      )}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </CardContent>
           </Card>
         </main>
