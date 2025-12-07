@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { Footer } from '@/components/Footer';
@@ -6,15 +6,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { DollarSign, Package, ShoppingCart, TrendingUp, Plus, Loader2, Store } from 'lucide-react';
+import { DollarSign, Package, ShoppingCart, TrendingUp, Plus, Loader2, Store, Pencil, Trash2, Upload, X, Image as ImageIcon } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { toast } from 'sonner';
+import { useDropzone } from 'react-dropzone';
 
 interface ProductPerformance {
   id: string;
@@ -29,6 +31,18 @@ interface SalesDataPoint {
   orders: number;
 }
 
+interface Product {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  stock_quantity: number;
+  is_active: boolean;
+  condition: 'new' | 'used' | 'refurbished';
+  brand: string | null;
+  images?: { id: string; image_url: string; is_primary: boolean }[];
+}
+
 export default function SellerDashboard() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -36,6 +50,7 @@ export default function SellerDashboard() {
   const [creatingProduct, setCreatingProduct] = useState(false);
   const [storeDialogOpen, setStoreDialogOpen] = useState(false);
   const [productDialogOpen, setProductDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [store, setStore] = useState<{ id: string; name: string } | null>(null);
   const [storeName, setStoreName] = useState('');
   const [storeDescription, setStoreDescription] = useState('');
@@ -47,6 +62,12 @@ export default function SellerDashboard() {
   const [productStock, setProductStock] = useState('');
   const [productCondition, setProductCondition] = useState<'new' | 'used' | 'refurbished'>('new');
   const [productBrand, setProductBrand] = useState('');
+  const [productImages, setProductImages] = useState<File[]>([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
+  
+  // Edit product state
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
   
   const [stats, setStats] = useState({
     totalRevenue: 0,
@@ -54,13 +75,7 @@ export default function SellerDashboard() {
     activeProducts: 0,
     outOfStock: 0
   });
-  const [products, setProducts] = useState<Array<{
-    id: string;
-    name: string;
-    price: number;
-    stock_quantity: number;
-    is_active: boolean;
-  }>>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [topProducts, setTopProducts] = useState<ProductPerformance[]>([]);
   const [salesData, setSalesData] = useState<SalesDataPoint[]>([]);
 
@@ -83,10 +98,26 @@ export default function SellerDashboard() {
 
         const { data: productsData } = await supabase
           .from('products')
-          .select('id, name, price, stock_quantity, is_active')
+          .select('id, name, description, price, stock_quantity, is_active, condition, brand')
           .eq('store_id', storeData.id);
 
-        setProducts(productsData || []);
+        // Fetch images for each product
+        const productsWithImages: Product[] = [];
+        for (const product of productsData || []) {
+          const { data: imagesData } = await supabase
+            .from('product_images')
+            .select('id, image_url, is_primary')
+            .eq('product_id', product.id)
+            .order('is_primary', { ascending: false });
+          
+          productsWithImages.push({
+            ...product,
+            condition: product.condition as 'new' | 'used' | 'refurbished',
+            images: imagesData || []
+          });
+        }
+
+        setProducts(productsWithImages);
 
         const { data: orderItems } = await supabase
           .from('order_items')
@@ -201,6 +232,55 @@ export default function SellerDashboard() {
     }
   };
 
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    setProductImages(prev => [...prev, ...acceptedFiles].slice(0, 5)); // Max 5 images
+  }, []);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: { 'image/*': ['.jpeg', '.jpg', '.png', '.webp'] },
+    maxFiles: 5,
+    maxSize: 5 * 1024 * 1024 // 5MB
+  });
+
+  const removeImage = (index: number) => {
+    setProductImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadProductImages = async (productId: string): Promise<void> => {
+    if (productImages.length === 0) return;
+
+    setUploadingImages(true);
+    try {
+      for (let i = 0; i < productImages.length; i++) {
+        const file = productImages[i];
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${productId}/${Date.now()}-${i}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('products')
+          .upload(fileName, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = supabase.storage
+          .from('products')
+          .getPublicUrl(fileName);
+
+        await supabase.from('product_images').insert({
+          product_id: productId,
+          image_url: urlData.publicUrl,
+          is_primary: i === 0
+        });
+      }
+    } catch (error) {
+      console.error('Error uploading images:', error);
+      throw error;
+    } finally {
+      setUploadingImages(false);
+    }
+  };
+
   const handleCreateProduct = async () => {
     if (!productName.trim()) {
       toast.error('Please enter a product name');
@@ -232,12 +312,29 @@ export default function SellerDashboard() {
           store_id: store.id,
           is_active: true
         })
-        .select('id, name, price, stock_quantity, is_active')
+        .select('id, name, description, price, stock_quantity, is_active, condition, brand')
         .single();
 
       if (error) throw error;
 
-      setProducts(prev => [...prev, data]);
+      // Upload images if any
+      if (productImages.length > 0) {
+        await uploadProductImages(data.id);
+      }
+
+      // Fetch the product with images
+      const { data: imagesData } = await supabase
+        .from('product_images')
+        .select('id, image_url, is_primary')
+        .eq('product_id', data.id);
+
+      const newProduct: Product = {
+        ...data,
+        condition: data.condition as 'new' | 'used' | 'refurbished',
+        images: imagesData || []
+      };
+
+      setProducts(prev => [...prev, newProduct]);
       setStats(prev => ({ ...prev, activeProducts: prev.activeProducts + 1 }));
       setProductDialogOpen(false);
       resetProductForm();
@@ -250,6 +347,149 @@ export default function SellerDashboard() {
     }
   };
 
+  const handleEditProduct = async () => {
+    if (!editingProduct) return;
+    if (!productName.trim()) {
+      toast.error('Please enter a product name');
+      return;
+    }
+    if (!productPrice || Number(productPrice) <= 0) {
+      toast.error('Please enter a valid price');
+      return;
+    }
+
+    setCreatingProduct(true);
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({
+          name: productName,
+          description: productDescription || null,
+          price: Number(productPrice),
+          stock_quantity: Number(productStock) || 0,
+          condition: productCondition,
+          brand: productBrand || null
+        })
+        .eq('id', editingProduct.id);
+
+      if (error) throw error;
+
+      // Upload new images if any
+      if (productImages.length > 0) {
+        await uploadProductImages(editingProduct.id);
+      }
+
+      // Fetch updated product with images
+      const { data: imagesData } = await supabase
+        .from('product_images')
+        .select('id, image_url, is_primary')
+        .eq('product_id', editingProduct.id);
+
+      setProducts(prev => prev.map(p => 
+        p.id === editingProduct.id 
+          ? {
+              ...p,
+              name: productName,
+              description: productDescription || null,
+              price: Number(productPrice),
+              stock_quantity: Number(productStock) || 0,
+              condition: productCondition,
+              brand: productBrand || null,
+              images: imagesData || []
+            }
+          : p
+      ));
+      setEditDialogOpen(false);
+      setEditingProduct(null);
+      resetProductForm();
+      toast.success('Product updated successfully!');
+    } catch (error: any) {
+      console.error('Error updating product:', error);
+      toast.error(error.message || 'Failed to update product');
+    } finally {
+      setCreatingProduct(false);
+    }
+  };
+
+  const handleDeleteProduct = async (productId: string) => {
+    setDeletingProductId(productId);
+    try {
+      // Delete product images from storage
+      const { data: images } = await supabase
+        .from('product_images')
+        .select('image_url')
+        .eq('product_id', productId);
+
+      if (images && images.length > 0) {
+        for (const img of images) {
+          const path = img.image_url.split('/products/')[1];
+          if (path) {
+            await supabase.storage.from('products').remove([path]);
+          }
+        }
+        await supabase.from('product_images').delete().eq('product_id', productId);
+      }
+
+      // Delete product
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', productId);
+
+      if (error) throw error;
+
+      setProducts(prev => prev.filter(p => p.id !== productId));
+      setStats(prev => ({ ...prev, activeProducts: prev.activeProducts - 1 }));
+      toast.success('Product deleted successfully!');
+    } catch (error: any) {
+      console.error('Error deleting product:', error);
+      toast.error(error.message || 'Failed to delete product');
+    } finally {
+      setDeletingProductId(null);
+    }
+  };
+
+  const handleDeleteProductImage = async (imageId: string, imageUrl: string, productId: string) => {
+    try {
+      const path = imageUrl.split('/products/')[1];
+      if (path) {
+        await supabase.storage.from('products').remove([path]);
+      }
+      
+      await supabase.from('product_images').delete().eq('id', imageId);
+      
+      setProducts(prev => prev.map(p => 
+        p.id === productId 
+          ? { ...p, images: p.images?.filter(img => img.id !== imageId) }
+          : p
+      ));
+      
+      if (editingProduct?.id === productId) {
+        setEditingProduct(prev => prev ? {
+          ...prev,
+          images: prev.images?.filter(img => img.id !== imageId)
+        } : null);
+      }
+      
+      toast.success('Image deleted');
+    } catch (error) {
+      console.error('Error deleting image:', error);
+      toast.error('Failed to delete image');
+    }
+  };
+
+  const openEditDialog = (product: Product) => {
+    setEditingProduct(product);
+    setProductName(product.name);
+    setProductDescription(product.description || '');
+    setProductPrice(String(product.price));
+    setProductStock(String(product.stock_quantity));
+    setProductCondition(product.condition);
+    setProductBrand(product.brand || '');
+    setProductImages([]);
+    setEditDialogOpen(true);
+  };
+
   const resetProductForm = () => {
     setProductName('');
     setProductDescription('');
@@ -257,6 +497,8 @@ export default function SellerDashboard() {
     setProductStock('');
     setProductCondition('new');
     setProductBrand('');
+    setProductImages([]);
+    setEditingProduct(null);
   };
 
   if (loading) {
@@ -556,15 +798,54 @@ export default function SellerDashboard() {
                             </SelectContent>
                           </Select>
                         </div>
+                        
+                        {/* Image Upload */}
+                        <div className="space-y-2">
+                          <Label>Product Images (max 5)</Label>
+                          <div
+                            {...getRootProps()}
+                            className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
+                              isDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'
+                            }`}
+                          >
+                            <input {...getInputProps()} />
+                            <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                            <p className="text-sm text-muted-foreground">
+                              {isDragActive ? 'Drop images here' : 'Drag & drop images or click to select'}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">JPG, PNG, WebP up to 5MB</p>
+                          </div>
+                          {productImages.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {productImages.map((file, index) => (
+                                <div key={index} className="relative w-16 h-16">
+                                  <img
+                                    src={URL.createObjectURL(file)}
+                                    alt={`Preview ${index}`}
+                                    className="w-full h-full object-cover rounded"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => removeImage(index)}
+                                    className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-0.5"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        
                         <Button 
                           className="w-full" 
                           onClick={handleCreateProduct}
-                          disabled={creatingProduct}
+                          disabled={creatingProduct || uploadingImages}
                         >
-                          {creatingProduct ? (
+                          {creatingProduct || uploadingImages ? (
                             <>
                               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Adding...
+                              {uploadingImages ? 'Uploading...' : 'Adding...'}
                             </>
                           ) : (
                             'Add Product'
@@ -579,17 +860,69 @@ export default function SellerDashboard() {
                 {products.length > 0 ? (
                   <div className="space-y-4">
                     {products.map((product) => (
-                      <div key={product.id} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                        <div className="flex-1">
-                          <p className="font-semibold">{product.name}</p>
+                      <div key={product.id} className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
+                        {/* Product Image */}
+                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                          {product.images && product.images.length > 0 ? (
+                            <img
+                              src={product.images[0].image_url}
+                              alt={product.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold truncate">{product.name}</p>
                           <p className="text-sm text-muted-foreground">
                             Stock: {product.stock_quantity} • ${Number(product.price).toFixed(2)}
                           </p>
                         </div>
+                        
                         <div className="flex items-center gap-2">
                           <span className={`text-xs px-2 py-1 rounded ${product.is_active ? 'bg-emerald-500/20 text-emerald-600' : 'bg-red-500/20 text-red-600'}`}>
                             {product.is_active ? 'Active' : 'Inactive'}
                           </span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEditDialog(product)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Product</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete "{product.name}"? This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDeleteProduct(product.id)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  disabled={deletingProductId === product.id}
+                                >
+                                  {deletingProductId === product.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    'Delete'
+                                  )}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </div>
                       </div>
                     ))}
@@ -618,6 +951,171 @@ export default function SellerDashboard() {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Edit Product Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={(open) => {
+        setEditDialogOpen(open);
+        if (!open) resetProductForm();
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Product</DialogTitle>
+            <DialogDescription>
+              Update the details for this product.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4 max-h-[60vh] overflow-y-auto">
+            <div className="space-y-2">
+              <Label htmlFor="editProductName">Product Name *</Label>
+              <Input
+                id="editProductName"
+                placeholder="Enter product name"
+                value={productName}
+                onChange={(e) => setProductName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editProductDescription">Description</Label>
+              <Textarea
+                id="editProductDescription"
+                placeholder="Describe your product..."
+                value={productDescription}
+                onChange={(e) => setProductDescription(e.target.value)}
+                rows={3}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="editProductPrice">Price ($) *</Label>
+                <Input
+                  id="editProductPrice"
+                  type="number"
+                  placeholder="0.00"
+                  value={productPrice}
+                  onChange={(e) => setProductPrice(e.target.value)}
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editProductStock">Stock Quantity</Label>
+                <Input
+                  id="editProductStock"
+                  type="number"
+                  placeholder="0"
+                  value={productStock}
+                  onChange={(e) => setProductStock(e.target.value)}
+                  min="0"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editProductBrand">Brand</Label>
+              <Input
+                id="editProductBrand"
+                placeholder="Enter brand name"
+                value={productBrand}
+                onChange={(e) => setProductBrand(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editProductCondition">Condition</Label>
+              <Select value={productCondition} onValueChange={(v: 'new' | 'used' | 'refurbished') => setProductCondition(v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select condition" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="new">New</SelectItem>
+                  <SelectItem value="used">Used</SelectItem>
+                  <SelectItem value="refurbished">Refurbished</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Existing Images */}
+            {editingProduct?.images && editingProduct.images.length > 0 && (
+              <div className="space-y-2">
+                <Label>Existing Images</Label>
+                <div className="flex flex-wrap gap-2">
+                  {editingProduct.images.map((img) => (
+                    <div key={img.id} className="relative w-16 h-16">
+                      <img
+                        src={img.image_url}
+                        alt="Product"
+                        className="w-full h-full object-cover rounded"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteProductImage(img.id, img.image_url, editingProduct.id)}
+                        className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                      {img.is_primary && (
+                        <span className="absolute bottom-0 left-0 right-0 bg-primary/80 text-primary-foreground text-[10px] text-center">
+                          Primary
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Add More Images */}
+            <div className="space-y-2">
+              <Label>Add More Images</Label>
+              <div
+                {...getRootProps()}
+                className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
+                  isDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'
+                }`}
+              >
+                <input {...getInputProps()} />
+                <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  {isDragActive ? 'Drop images here' : 'Drag & drop images or click to select'}
+                </p>
+              </div>
+              {productImages.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {productImages.map((file, index) => (
+                    <div key={index} className="relative w-16 h-16">
+                      <img
+                        src={URL.createObjectURL(file)}
+                        alt={`Preview ${index}`}
+                        className="w-full h-full object-cover rounded"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <Button 
+              className="w-full" 
+              onClick={handleEditProduct}
+              disabled={creatingProduct || uploadingImages}
+            >
+              {creatingProduct || uploadingImages ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {uploadingImages ? 'Uploading...' : 'Updating...'}
+                </>
+              ) : (
+                'Update Product'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <BottomNav />
       <Footer />
