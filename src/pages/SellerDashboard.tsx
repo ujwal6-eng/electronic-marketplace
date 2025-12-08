@@ -13,7 +13,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { DollarSign, Package, ShoppingCart, TrendingUp, Plus, Loader2, Store, Pencil, Trash2, Upload, X, Image as ImageIcon } from 'lucide-react';
+import { DollarSign, Package, ShoppingCart, TrendingUp, Plus, Loader2, Store, Pencil, Trash2, Upload, X, Image as ImageIcon, AlertTriangle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { toast } from 'sonner';
 import { useDropzone } from 'react-dropzone';
@@ -592,6 +593,44 @@ export default function SellerDashboard() {
           <h1 className="text-3xl font-bold mb-2">Seller Dashboard</h1>
           <p className="text-muted-foreground">Manage your store: {store.name}</p>
         </div>
+
+        {/* Low Stock Alerts */}
+        {(() => {
+          const LOW_STOCK_THRESHOLD = 10;
+          const lowStockProducts = products.filter(p => p.stock_quantity > 0 && p.stock_quantity <= LOW_STOCK_THRESHOLD);
+          const outOfStockProducts = products.filter(p => p.stock_quantity === 0);
+          
+          if (lowStockProducts.length === 0 && outOfStockProducts.length === 0) return null;
+          
+          return (
+            <div className="space-y-3 mb-6">
+              {outOfStockProducts.length > 0 && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Out of Stock Alert</AlertTitle>
+                  <AlertDescription>
+                    {outOfStockProducts.length} product{outOfStockProducts.length > 1 ? 's are' : ' is'} out of stock: {' '}
+                    <span className="font-medium">
+                      {outOfStockProducts.map(p => p.name).join(', ')}
+                    </span>
+                  </AlertDescription>
+                </Alert>
+              )}
+              {lowStockProducts.length > 0 && (
+                <Alert className="border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  <AlertTitle>Low Stock Warning</AlertTitle>
+                  <AlertDescription>
+                    {lowStockProducts.length} product{lowStockProducts.length > 1 ? 's have' : ' has'} low stock (≤{LOW_STOCK_THRESHOLD} units): {' '}
+                    <span className="font-medium">
+                      {lowStockProducts.map(p => `${p.name} (${p.stock_quantity})`).join(', ')}
+                    </span>
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
