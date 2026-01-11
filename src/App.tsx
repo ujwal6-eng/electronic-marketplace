@@ -5,10 +5,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { CartProvider } from "@/contexts/CartContext";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { ParseAuthProvider } from "@/contexts/ParseAuthContext";
 import { Suspense, lazy } from "react";
 import { Loader2 } from "lucide-react";
-
 // Eager load critical pages
 import Index from "./pages/Index";
 import Login from "./pages/Login";
@@ -63,7 +62,7 @@ const App = () => (
               v7_relativeSplatPath: true,
             }}
           >
-            <AuthProvider>
+            <ParseAuthProvider>
               <Suspense fallback={<PageLoader />}>
                 <Routes>
                   <Route path="/" element={<Index />} />
@@ -97,7 +96,7 @@ const App = () => (
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>
-            </AuthProvider>
+            </ParseAuthProvider>
           </BrowserRouter>
         </TooltipProvider>
       </CartProvider>
